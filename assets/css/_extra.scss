@@ -1,0 +1,15 @@
+:not(pre) > code {
+    background-color: transparent; 
+    color: #58a6ff; 
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace; 
+    font-size: 90%; 
+    display: inline; 
+    vertical-align: baseline; 
+    line-height: inherit; 
+  }
+
+.posts-header {
+    text-align: left;
+    font-size: 1.7em; 
+    margin-bottom: 0em;
+  }

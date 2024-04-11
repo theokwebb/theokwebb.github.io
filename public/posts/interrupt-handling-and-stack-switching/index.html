@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en-us">
+  <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+    <title>Interrupt Handling and Stack Switching in x86-64 Architecture // theokwebb</title>
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <meta charset="utf-8" />
+    <meta name="generator" content="Hugo 0.124.1">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="author" content="theokwebb" />
+    <meta name="description" content="" />
+    <link rel="stylesheet" href="/css/main.min.eb08e2e7694145a1d4df06021a1ad7326ce127a3bed00234cc12181230b485c4.css" />
+    
+
+    
+    <meta name="twitter:card" content="summary"/><meta name="twitter:title" content="Interrupt Handling and Stack Switching in x86-64 Architecture"/>
+<meta name="twitter:description" content="Prelude In this post I will attempt to explain interrupt handling and stack switching in x86-64 architecture. I decided to write this because I couldn&rsquo;t understand the interrupt procedure call or how stack switches work in a lab from Xeno’s Architecture 2001: x86-64 OS Internals course at OpenSecurityTraining2. Therefore, with the help of Xeno’s slides and the Intel manual, I have tried to simplify and explain these topics here.
+For anyone curious about the lab that started it all, I have also put together a writeup here."/>
+
+    <meta property="og:title" content="Interrupt Handling and Stack Switching in x86-64 Architecture" />
+<meta property="og:description" content="Prelude In this post I will attempt to explain interrupt handling and stack switching in x86-64 architecture. I decided to write this because I couldn&rsquo;t understand the interrupt procedure call or how stack switches work in a lab from Xeno’s Architecture 2001: x86-64 OS Internals course at OpenSecurityTraining2. Therefore, with the help of Xeno’s slides and the Intel manual, I have tried to simplify and explain these topics here.
+For anyone curious about the lab that started it all, I have also put together a writeup here." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://localhost:1313/posts/interrupt-handling-and-stack-switching/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2024-04-10T16:02:59+09:00" />
+<meta property="article:modified_time" content="2024-04-10T16:02:59+09:00" />
+
+
+  </head>
+  <body>
+    <header class="app-header">
+      <a href="http://localhost:1313/"><img class="app-header-avatar" src="/images/pen.jpeg" alt="theokwebb" /></a>
+      <span class="app-header-title">theokwebb</span>
+      <p>Malware development, system internals, and low-level programming</p>
+      <div class="app-header-social">
+        
+          <a href="https://github.com/theokwebb" target="_blank" rel="noreferrer noopener me">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-github">
+  <title>Github</title>
+  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+</svg>
+          </a>
+        
+          <a href="https://twitter.com/theokwebb" target="_blank" rel="noreferrer noopener me">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-twitter">
+  <title>Twitter</title>
+  <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path>
+</svg>
+          </a>
+        
+          <a href="https://www.linkedin.com/in/theo-w-883582267/" target="_blank" rel="noreferrer noopener me">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-linkedin">
+  <title>LinkedIn</title>
+  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle>
+</svg>
+          </a>
+        
+      </div>
+    </header>
+    <main class="app-container">
+      
+  <article class="post">
+    <header class="post-header">
+      <h1 class ="post-title">Interrupt Handling and Stack Switching in x86-64 Architecture</h1>
+      <div class="post-meta">
+        <div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-calendar">
+  <title>calendar</title>
+  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>
+</svg>
+          Apr 10, 2024
+        </div>
+        <div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-clock">
+  <title>clock</title>
+  <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+</svg>
+          8 min read
+        </div>
+      </div>
+    </header>
+    <div class="post-content">
+      <h2 id="prelude">Prelude</h2>
+<p>In this post I will attempt to explain interrupt handling and stack switching in x86-64 architecture. I decided to write this because I couldn&rsquo;t understand the interrupt procedure call or how stack switches work in a lab from Xeno’s <a href="https://ost2.fyi/Arch2001">Architecture 2001: x86-64 OS Internals</a> course at <a href="https://ost2.fyi">OpenSecurityTraining2</a>. Therefore, with the help of Xeno’s slides and the Intel manual, I have tried to simplify and explain these topics here.</p>
+<p>For anyone curious about the lab that started it all, I have also put together a writeup <a href="https://github.com/theokwebb/my-writeups/tree/main/PearlyInterruptGates">here</a>.</p>
+<h2 id="disclaimer">Disclaimer</h2>
+<p>I am new to x86-64 OS Internals, so if there are any mistakes or necessary additions, please let me know on <a href="https://twitter.com/theokwebb">X</a>.</p>
+<h2 id="locating-the-interrupt-descriptor-table-idt-a-key-step-in-interrupt-handling">Locating the Interrupt Descriptor Table (IDT): A Key Step in Interrupt Handling</h2>
+<p>In the occurrence of an interrupt, the system&rsquo;s hardware consults the Interrupt Descriptor Table Register (IDTR) in order to locate the Interrupt Descriptor Table (IDT). The LIDT (load IDT register) instruction, a privileged instruction, loads the IDTR with the base address and limit (as specified in Section 6-10 Vol. 3A). This base address points at the start of the IDT, and the limit specifies the size of the IDT:</p>
+<p><img src="/interrupts/Screenshot1.png" alt="screenshot1"></p>
+<p>In order to access a specific descriptor in the IDT (in response to an exception or interrupt), the processor uses “the exception or interrupt vector as an index to a descriptor in the IDT” (shown in Figure 6-3 below). These exception/interrupt vectors can be found in Section 6-2 Vol. 3A of the Intel manual.</p>
+<p>The descriptors in the IDT can be either Interrupt or Trap Gates, and each contain a segment selector and a 64-bit offset which tells the processor where the code for the exception- or interrupt-handler is located.</p>
+<p>Xeno said “you can think of the IDT as an array of function (far) pointers, and when interrupt (vector) n is invoked by software or hardware, execution transfers to the address pointed to by the nth descriptor in the table. However, there will be checks for access control on the interrupt gate itself (in the IDT), as well as on interrupt procedure to which that interrupt gate points”:</p>
+<p><img src="/interrupts/Screenshot2.png" alt="screenshot2"></p>
+<p>Here is an overview of the privilege-level protection rules (Section 6.12.1.2 Vol. 3A of the Intel manual):</p>
+<ul>
+<li>General Rule for Exception and Interrupt Handlers:
+<ul>
+<li>If the Current Privilege Level (CPL) is <strong>less than</strong> the Descriptor Privilege Level (DPL) of the Interrupt Gate, a general-protection (#GP) exception occurs.</li>
+<li>If the CPL <strong>equals</strong> the Interrupt Gate DPL, execution transfer is permitted.</li>
+</ul>
+</li>
+<li>Software Interrupts (via assembly instructions like <code>INT n</code>):
+<ul>
+<li>If the CPL is <strong>less than or equal to</strong> the Interrupt Gate DPL, execution transfer is permitted.
+<ul>
+<li>For example, a transfer would fail if the CPL is <code>3</code> and the Interrupt Gate&rsquo;s DPL is <code>0</code>.</li>
+<li>Conversely, a transfer where the CPL is <code>0</code> and the DPL is <code>3</code> is permitted.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Hardware Interrupts (triggered by an external device such as network card, video card, keyboard, or USB device):
+<ul>
+<li>DPL ignored.</li>
+</ul>
+</li>
+<li>Special Conditions for Handler Execution:
+<ul>
+<li>If the handler is placed in a non-confirming code segment with DPL of <code>0</code>, it will always execute regardless of the CPL.</li>
+<li>Similarly, if the handler is placed in a conforming code segment, it will also execute regardless of the CPL. This makes sense because conforming code segments are designed to be accessible by code running at any privilege level.</li>
+</ul>
+</li>
+</ul>
+<p>To see how these rules were tested, click <a href="#testing">here</a>.</p>
+<p>So, what is the CPL of the currently executing code? This can be determined by looking at the current Code-Segment and Code-Segment Descriptor.</p>
+<p>In order to display the value of the CS register, you can use the WinDBG register command <code>r cs</code>:</p>
+<pre tabindex="0"><code>0: kd&gt; r cs
+cs=0010
+</code></pre><p><img src="/interrupts/Screenshot3.png" alt="screenshot3"></p>
+<p>The Code Segment (CS) register contains an RPL (Requested Privilege Level), a TI (Table Indicator), and an index. Specifically, the RPL field, represented by the least significant bits (<code>0</code> and <code>1</code>) of <strong>any</strong> segment selector, specifies the requested privilege level of a segment selector. However, in the context of the CS segment register, bits <code>0</code> and <code>1</code> indicate the privilege level of the currently executing program or procedure.</p>
+<p>In my case, <code>TI</code> is set to zero, so it points to the Global Descriptor Table (GDT). Specifically, it points at index <code>2</code> (<code>00010000</code>). The GDT indicates the memory location for the code segment. However, in 64-bit environments, it does not take a base or limit from there but assumes zero. Therefore, the information taken from the GDT is access information, specifying who is allowed to access this memory for this particular code segment, whether the kernel or user space.</p>
+<p>In order to view the GDT, you can use <code>!ms_gdt</code> command with the SwishDBGExt plugin in WinDBG:</p>
+<p><img src="/interrupts/Screenshot4.png" alt="screenshot4"></p>
+<p>Here, we can see the <code>DPL</code> for index <code>2</code> is <code>R0</code>. The privilege level of the segment that the CS register points to (its <code>DPL</code>) is effectively the CPL of the currently executing code (<code>R0</code>).</p>
+<p>The DPL is also present in both Interrupt and Trap Gate Descriptors, indicated by bits <code>14:13</code> within the highlighted segment of bytes <code>7:4</code>:</p>
+<p><img src="/interrupts/Screenshot5.png" alt="screenshot5"></p>
+<p>As outlined in the rules for exception and interrupt handling, the CPL and DPL are used to carry out privilege-level checks. For example, if a <strong>software interrupt</strong> is called and the DPL was set to zero and you were at CPL three, it would not allow you through.</p>
+<p>There is also the stack-switch mechanism to consider (Section 6.12.1 Vol. 3A of the Intel manual):</p>
+<ul>
+<li>“If the handler procedure is going to be executed at a numerically lower privilege level (like ring <code>0</code>), the processor performs a stack switch. This switch involves the Task State Segment (TSS).</li>
+<li>If the handler procedure is going to be executed at the same privilege level as the interrupted procedure, the current stack is used.”</li>
+</ul>
+<p>In the case of a stack switch:</p>
+<ul>
+<li>“The segment selector and stack pointer for the stack to be used by the handler are obtained from the TSS (Task State Segment) for the currently executing task. On this new stack, the processor pushes the stack segment selector and stack pointer of the interrupted procedure.</li>
+<li>The processor then saves the current state of the EFLAGS, CS, and EIP registers on the new stack (see Figure 6-4 below).</li>
+<li>If an exception causes an error code to be saved, it is pushed on the new stack after the EIP value.”</li>
+</ul>
+<p><img src="/interrupts/Screenshot6.png" alt="screenshot6"></p>
+<p>So, after the stack switch, the processor uses the segment selector and offset (from the IDT entry) to locate and execute the interrupt or exception handler. This handler code will operate on the new stack.</p>
+<p>In order to return from the handler, the <code>IRET</code> instruction is used, which will restore the state of the processor to what it was before the interrupt or exception, which includes a switch back to the original stack.</p>
+<p>A stack switch can also occur if the Interrupt Gate Descriptor’s (IGD) Interrupt Stack Table (IST) bits are non-zero. It then uses the IST bits to specify a specific index from the Interrupt Descriptor Table (IDT) to use for the RSP (see Figure below). This stack is obtained from the TSS through a stack switch.</p>
+<p><img src="/interrupts/Screenshot7.png" alt="screenshot7"></p>
+<p>The Task State Segment (TSS) was referenced multiple times in relation to a stack switch. So, how does the processor actually locate the TSS?</p>
+<p>The TSS is accessed through the Task Register (TR). The processor uses the segment selector in the TR to find the TSS descriptor in the GDT, and from this descriptor, it retrieves the base address of the TSS and can then access the TSS itself in memory.</p>
+<p><img src="/interrupts/Screenshot8.png" alt="screenshot8"></p>
+<p>This is what the TSS look at on 64-bit mode:</p>
+<p><img src="/interrupts/Screenshot9.png" alt="screenshot9"></p>
+<p>It includes RSPn which are the 64-bit stack pointers for privilege levels <code>0-2</code>. RSPn are the addresses that will be used as the RSP in the case of a stack switch and point to the stack to be used when an interrupt occurs that transitions the processor into a lower privilege level (like Ring <code>0</code>). This address specifies the top of the stack where the processor can push the stack segment selector, stack pointer, etc.</p>
+<p>The TSS also includes 64-bit interrupt stack table (IST) pointers (ISTn). There are seven possible stack locations for specific interrupts (such as NMI, double-fault, and machine-check) in the Interrupt Descriptor Table (IDT) highlighted above.</p>
+<p><!-- raw HTML omitted --><!-- raw HTML omitted --></p>
+<h2 id="testing">Testing</h2>
+<p>To examine some of the privilege-level protection rules described in Section 6.12.1.2 Vol. 3A of the Intel manual, I used a <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/gettingstarted/writing-a-very-small-kmdf--driver">boilerplate kernel driver</a> and added a custom function that calls a user-defined interrupt (interrupts <code>32</code> to <code>255</code>) from the IDT. Before the call, in WinDBG, I modified the entry’s DPL to observe various situations. In addition, I wrote a simple function to call an IDT entry (with a DPL of <code>0</code>) from userspace. The code can be found <a href="https://github.com/theokwebb/Interrupts/tree/main">here</a>.</p>
+<h3 id="in-kernelspace">In kernelspace:</h3>
+<ul>
+<li>Connect from WinDBG on the Debugger VM to the kernel on the Debuggee VM.</li>
+<li>In WinDBG on the Debugger VM, input <code>sxe ld [DriverName].sys</code> in order to set a breakpoint at <code>DriverEntry</code>.</li>
+<li>Install the driver on the Debuggee VM.</li>
+<li>In WinDBG on the Debugger VM, choose an IDT entry within the range of <code>32</code> to <code>255</code> (currently set to entry <code>180</code> in the source code). The entire IDT can be viewed with the command <code>!idt</code> or through the SwishDbg plugin with <code>!ms_idt</code>. Then, find the pointer to this specific entry with the command <code>dq idtr L500</code>:</li>
+</ul>
+<p><img src="/interrupts/Screenshot10.png" alt="screenshot10"></p>
+<p><img src="/interrupts/Screenshot11.png" alt="screenshot11"></p>
+<ul>
+<li>Use the memory window in WinDBG to locate the address and adjust the DPL bits (<code>0x8</code> for <code>R0</code> and <code>0xE</code> for <code>R3</code>).</li>
+</ul>
+<p><img src="/interrupts/Screenshot12.png" alt="screenshot12"></p>
+<ul>
+<li>Then, enter <code>g</code> to proceed and monitor WinDBG for any output.</li>
+</ul>
+<h3 id="in-userspace">In userspace:</h3>
+<ul>
+<li>I wrote a simple function to trigger interrupt <code>190</code>, which had a DPL of <code>0</code> on my system. Given the CPL is at <code>3</code>, and interrupt <code>190</code>&rsquo;s DPL is set to <code>0</code>, this resulted in an access violation exception:</li>
+</ul>
+<p><img src="/interrupts/Screenshot13.png" alt="screenshot13"></p>
+<h2 id="credits">Credits</h2>
+<p>Thank you to Xeno at <a href="https://ost2.fyi">OpenSecurityTraining2</a> for the incredible x86-64 OS Internals course and for the edited figures from the Intel manual used in this post.</p>
+
+    </div>
+    <div class="post-footer">
+      
+    </div>
+  </article>
+
+    </main>
+  </body>
+</html>

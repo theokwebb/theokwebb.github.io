@@ -1,0 +1,32 @@
+baseURL = 'https://theokwebb.github.io'
+languageCode = 'en-us'
+title = 'theokwebb'
+
+theme = "m10c"
+paginate = 8
+
+[params]
+  author = "theokwebb"
+  description = "Malware development, system internals, and low-level programming"
+  avatar = "/images/pen.jpeg"
+  menu_item_separator = " - "
+  favicon = "/favicon.ico"
+  [[params.social]]
+    icon = "github"
+    name = "Github"
+    url = "https://github.com/theokwebb"
+  [[params.social]]
+    icon = "twitter"
+    name = "Twitter"
+    url = "https://twitter.com/theokwebb"
+  [[params.social]]
+    icon = "linkedin"
+    name = "LinkedIn"
+    url = "https://www.linkedin.com/in/theo-w-883582267/"
+
+  [params.style]
+    darkestColor = "#0d1117"
+    darkColor = "#161b22"
+    lightColor = "#e2e6ec"
+    lightestColor = "#ffffff"
+    primaryColor = "#58a6ff"

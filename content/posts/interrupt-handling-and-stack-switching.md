@@ -1,6 +1,6 @@
 +++
 title = 'Interrupt Handling and Stack Switching in x86-64 Architecture'
-date = 2024-04-10T16:02:59+09:00
+date = 2024-04-11T16:02:59+09:00
 draft = false
 +++
 
@@ -110,7 +110,7 @@ To examine some of the privilege-level protection rules described in Section 6.1
 - Connect from WinDBG on the Debugger VM to the kernel on the Debuggee VM.
 - In WinDBG on the Debugger VM, input `sxe ld [DriverName].sys` in order to set a breakpoint at `DriverEntry`.
 - Install the driver on the Debuggee VM.
-- In WinDBG on the Debugger VM, choose an IDT entry within the range of `32` to `255` (currently set to entry `180` in the source code). The entire IDT can be viewed with the command `!idt` or through the SwishDbg plugin with `!ms_idt`. Then, find the pointer to this specific entry with the command `dq idtr L500`:
+- In WinDBG on the Debugger VM, choose an IDT entry within the range of `32` to `255` (currently set to entry `180` in the source code). The entire IDT can be viewed with the command `!idt` or through the SwishDBG plugin with `!ms_idt`. Then, find the pointer to this specific entry with the command `dq idtr L500`:
 
 ![screenshot10](/interrupts/Screenshot10.png)
 
@@ -120,7 +120,7 @@ To examine some of the privilege-level protection rules described in Section 6.1
 
 ![screenshot12](/interrupts/Screenshot12.png)
 
-- Then, enter `g` to proceed and monitor WinDBG for any output.
+- Enter `g` to proceed and monitor WinDBG for any output.
 
 ### In userspace:
 - I wrote a simple function to trigger interrupt `190`, which had a DPL of `0` on my system. Given the CPL is at `3`, and interrupt `190`'s DPL is set to `0`, this resulted in an access violation exception:
